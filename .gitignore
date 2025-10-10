@@ -419,4 +419,10 @@ FodyWeavers.xsd
 # My gitignore
 *.sln.iml
 *.DS_Store
+<<<<<<< HEAD
 *.Rproj
+=======
+
+# ingnore raw data
+data112.csv
+>>>>>>> 726e6b9 (Ignore raw data in version control)
