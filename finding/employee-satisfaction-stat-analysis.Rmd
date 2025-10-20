@@ -1,6 +1,6 @@
 ---
-title: "Statistical Analysis Template (Converted from Jupyter)"
-author: "Auto-converted"
+title: "Statistical Analysis of Employee Satisfaction Data"
+author: "林渭倫 R13227114"
 output: html_document
 date: "`r format(Sys.time(), '%Y-%m-%d')`"
 ---
@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 # Background
 
 - **Author**: 林渭倫
-- **Created At**: `<YYYY-MM-DD>`
+- **Created At**: 2025-10-20
 - **Research Motivation and Context (why are we interested in the findings?)：**
 - **Main Findings and Takeaways：**
 - **Future Direciton：**
@@ -37,7 +37,9 @@ dat <- read.csv("../data/processed/processed_data112.csv")
 
 dat <- dat %>% 
   mutate_at(-c(14, 29, 30), as.factor)  # convert mislabeled factor into actual factor
-head(dat, 10)
+head(dat, 10) %>% 
+  kable("html") %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
 ```
 
 ```{r}
