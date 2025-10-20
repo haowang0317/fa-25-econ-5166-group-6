@@ -421,9 +421,12 @@ FodyWeavers.xsd
 *.DS_Store
 <<<<<<< HEAD
 *.Rproj
+*.Rhistory
+*.ipynb_checkpoints
 =======
 
 # ingnore raw data
 data112.csv
 processed_data112.csv
 >>>>>>> 726e6b9 (Ignore raw data in version control)
+.Rproj.user
