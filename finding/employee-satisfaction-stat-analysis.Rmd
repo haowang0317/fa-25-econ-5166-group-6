@@ -21,6 +21,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 # Load packages here
 library(tidyverse)
 library(kableExtra)
+library(MASS)
 ```
 
 ```{r load-data}
@@ -148,4 +149,41 @@ for (i in seq(1, 27, n.chart)) {
   print(piechart(cate_summary, i:(i + n.chart - 1)))
 }
 ```
+
+Ordinal logistic regression
+
+```{r olr}
+mod <- polr(a12 ~ ., data=dat)
+
+summary(mod)
+```
+
+```{r coef}
+mod.coef <- coef(summary(mod)) %>% 
+  as.data.frame() %>% 
+  rename_with(~ gsub(" ", ".", .x, fixed=T)) %>% 
+  rownames_to_column("variables") %>% 
+  mutate(
+    p.value = pnorm(abs(t.value), lower.tail=F)*2
+  ) %>% 
+  mutate(across(-1, ~ round(., 3)))
+
+mod.confint <- confint.default(mod) %>% 
+  as.data.frame() %>% 
+  round(3) %>% 
+  rename_with(~ gsub(" %", "% CI", .x)) %>% 
+  rownames_to_column("variables")
+
+left_join(mod.coef, mod.confint) %>% 
+  mutate(
+    p.value = cell_spec(
+      p.value, "html", 
+      color=ifelse(p.value < .05, "red", "black")
+    )
+  ) %>% 
+  kable("html", escape=F) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+```
+
+
 
