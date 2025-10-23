@@ -11,17 +11,22 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 # Background
 
-- **Author**: 林渭倫
-- **Created At**: 2025-10-20
-- **Research Motivation and Context (why are we interested in the findings?)：**
-- **Main Findings and Takeaways：**
-- **Future Direciton：**
+-   **Author**: `林渭倫`
+-   **Created At**: `2025-10-20`
+-   **Research Motivation and Context (why are we interested in the findings?)：**
+    -   We want to know how the participants response. Knowing them helps us specify our model.
+-   **Main Findings and Takeaways：**
+    -   We have 28 variables and 4095 participants. We have accomplished the summary statistics of 3 numeric variables and 25 categorical variables. The distributions of the variables seems fine.
+-   **Future Direction：**
+    -   Ask DE to rename the variables and their values. After that, the discussion of the results will be accelerated.
 
 ```{r load-packages}
 # Load packages here
 library(tidyverse)
 library(kableExtra)
-library(MASS)
+# library(MASS)
+
+# conflicted::conflict_prefer_all("dplyr")
 ```
 
 ```{r load-data}
@@ -38,10 +43,12 @@ dat <- read.csv("../data/processed/processed_data112.csv")
 
 dat <- dat %>% 
   mutate_at(-c(14, 29, 30), as.factor)  # convert mislabeled factor into actual factor
-head(dat, 10) %>% 
-  kable("html") %>% 
+head(dat, 10) %>%
+  kable("html", caption="First 10 observations of the employee satisfication data") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
 ```
+
+However, DE haven't rename the variables and the value. The job will be done soon (hopefully).
 
 ```{r}
 # Before conducting the analysis, report summary statistics for all variables 
@@ -54,11 +61,12 @@ head(dat, 10) %>%
 ```
 
 ### The actual analysis starts below
-Make the graphs, summary statistics, regression model below.
-Make sure you have followed the guidelines as specified in 
-[專案資料夾結構、檔案命名與文件規範](https://docs.google.com/document/d/1sl6gEFMdmiGsiNjLe17UmZ30xKxq15U0Mb2B-Jvusxg/edit?tab=t.33iie8ybx7s4).
 
-The summary statistics for numeric variables:
+Make the graphs, summary statistics, regression model below. Make sure you have followed the guidelines as specified in [專案資料夾結構、檔案命名與文件規範](https://docs.google.com/document/d/1sl6gEFMdmiGsiNjLe17UmZ30xKxq15U0Mb2B-Jvusxg/edit?tab=t.33iie8ybx7s4).
+
+## Summary Statistics
+
+### Numeric Variables
 
 ```{r summary-stat-numeric}
 dat %>% 
@@ -66,21 +74,26 @@ dat %>%
   summarise(across(-where(is.factor), .fns=list(
     mean = mean,
     min = min,
-    pr.25th = ~ quantile(., .25),
+    Q25 = ~ quantile(., .25),
     median = median,
-    pr.75th = ~ quantile(., .75),
+    Q75 = ~ quantile(., .75),
     max = max,
-    stdev = sd,
-    n = ~ length(.)
+    sd = sd,
+    "#obs" = ~ length(.)
   ))) %>% 
   pivot_longer(everything(), names_sep = "_", names_to = c("variable", ".value")) %>% 
-  kable("html") %>% 
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+  kable("html", caption="Summary Statistics of Numeric Variables") %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>% 
+  footnote("The naming of variables and the values should be done by DE.")
 ```
 
-The histograms of the numeric variables:
+It seems that most of the extra hours are smaller than 5. After discussion, we decided to keep the observations that have extremely high extra hours. Having 100 extra hours means working 5 hours overtime in average. Although the Labor Standards Act (LSA) stipulates that monthly overtime hours must not exceed 100 hours, we decided to include this data in the analysis, considering that some companies might require employees to work unpaid overtime by having them clock out and then continue working.
 
-```{r plot-numeric}
+The wide range in years of service indicates that this survey includes employees from both senior and junior levels, which may allow us to better observe the effect of seniority on employee satisfaction.
+
+<!-- The histograms of the numeric variables: -->
+
+```{r plot-numeric, include=F, echo=F}
 dat %>% 
   select(-is.factor) %>% 
   pivot_longer(everything()) %>% 
@@ -91,7 +104,7 @@ dat %>%
   theme_light()
 ```
 
-The summary statistics for categorical variables:
+### Categorical Variables
 
 ```{r summary-stat-catogorical}
 cate_summary <- dat %>% 
@@ -117,16 +130,24 @@ cate_summary <- dat %>%
   arrange(variable, desc(count)) %>%  # sorting by variable
   filter(row_number() <= 10)  # only focus on the ten most frequent categories
 
-cate_summary %>% 
-  kable("html") %>% 
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>% 
-  collapse_rows(1) %>% 
-  footnote(general = "All the numbers of observation of categorical variable are 4095")
+level_count <- cate_summary %>% count(variable)
+row_group <- level_count$n
+names(row_group) <- level_count$variable %>% paste0(": #obs=4095")
+
+cate_summary[, -1] %>% 
+  kable("html", caption="Summary Statistics of Categorical Variables") %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
+  # collapse_rows(1, row_group_label_position = "first") %>% 
+  pack_rows(index=row_group) %>% 
+  footnote("The naming of variables and the values should be done by DE.")
 ```
 
-We first defined a function that helps drawing pie chart of categorical variables.
+To note that the naming of variables and the values should be done by DE.\
+The distributions of items about satisfaction shows that the employees are satisfy with their job (the coding `1` denotes "very satisfied"). Further discussion will be done after the naming is done.
 
-```{r plot-categorical}
+<!-- We first defined a function that helps drawing pie chart of categorical variables. -->
+
+```{r plot-categorical, include=F, echo=F}
 piechart <- function(dat, var.range=1:9) {
   dat %>%
     filter(variable %in% unique(.$variable)[var.range]) %>%
@@ -150,16 +171,16 @@ for (i in seq(1, 27, n.chart)) {
 }
 ```
 
-Ordinal logistic regression
+<!-- ## Ordinal logistic regression -->
 
-```{r olr}
-mod <- polr(a12 ~ ., data=dat)
+```{r olr, include=F, echo=F}
+olr.emp <- MASS::polr(a12 ~ ., data=dat)
 
-summary(mod)
+# summary(olr.emp)
 ```
 
-```{r coef}
-mod.coef <- coef(summary(mod)) %>% 
+```{r coef, include=F, echo=F}
+coef_olr.emp <- coef(summary(olr.emp)) %>% 
   as.data.frame() %>% 
   rename_with(~ gsub(" ", ".", .x, fixed=T)) %>% 
   rownames_to_column("variables") %>% 
@@ -168,13 +189,13 @@ mod.coef <- coef(summary(mod)) %>%
   ) %>% 
   mutate(across(-1, ~ round(., 3)))
 
-mod.confint <- confint.default(mod) %>% 
+confint_olr.emp <- confint.default(olr.emp) %>% 
   as.data.frame() %>% 
   round(3) %>% 
   rename_with(~ gsub(" %", "% CI", .x)) %>% 
   rownames_to_column("variables")
 
-left_join(mod.coef, mod.confint) %>% 
+left_join(coef_olr.emp, confint_olr.emp) %>% 
   mutate(
     p.value = cell_spec(
       p.value, "html", 
@@ -185,5 +206,6 @@ left_join(mod.coef, mod.confint) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
 ```
 
-
-
+```{r likelihood-ratio-test, include=F, echo=F}
+car::Anova(olr.emp, type=3)
+```
