@@ -1,0 +1,251 @@
+---
+title: "Statistical Analysis of Employee Satisfaction Data and Logit Regression"
+author: "林渭倫 R13227114"
+output: html_document
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Background
+
+-   **Author**: `林渭倫`
+-   **Created At**: `2025-10-30`
+-   **Research Motivation and Context (why are we interested in the findings?)：**
+    -   近年來對於勞工權益的意識抬頭，職場霸凌等等的新聞也層出不窮。也因為距離進入職場不算太久，所以我們想要知道可能會有哪些因素導致勞工對於工作的滿意度上升，並且作為日後挑選工作的考量之一。
+-   **Main Findings and Takeaways：**
+    -   對於「工作時間」以及「同事之間的相處情形」越滿意，則對於整體而言的工作滿意度就越滿意。且年齡越高也會對於工作的滿意度有著正向的影響。
+-   **Future Direction：**
+    -   進一步探討這些因素可能會如何去影響整體工作滿意度，並且做出更細緻的解釋。
+
+```{r load-packages}
+# Load packages here
+library(tidyverse)
+library(kableExtra)
+library(glmnet)
+library(sandwich)
+library(lmtest)
+# library(MASS)
+# library(Hmisc)
+# conflicted::conflict_prefer_all("dplyr")
+```
+
+```{r load-data}
+# Load input data here and please finish all the data manipulation here.
+# Finish this block by printing the first ten observations of the data.
+# Note:
+# - You may only read data from /data/processed.
+# - Files in /data/processed should already be cleaned and prepared for analysis.
+# - Beyond simple filtering of observations or generating a small number of variables,
+#   further data manipulation is not allowed. If more extensive changes are needed,
+#   update the source data instead.
+# setwd(dirname(rstudioapi::getActiveDocumentContext()$path))  # set the working directory to this Rmd file
+dat <- read.csv("../data/processed/processed_data112_01.csv")
+
+# dat %>% str
+
+dat <- dat %>% 
+  mutate_at(-c(14, 15, 16, 20, 22, 29, 30), as.factor)  # convert mislabeled factor into actual factor
+head(dat, 10) %>%
+  kable("html", caption="First 10 observations of the employee satisfication data") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
+  scroll_box(width = "100%")
+```
+
+```{r}
+# Before conducting the analysis, report summary statistics for all variables 
+# that will be used in this notebook:
+#   - For numeric variables: mean, min, 25th percentile, median, 75th percentile, 
+#     max, standard deviation, and number of observations.
+#   - For categorical variables: number of observations and the counts/percentages 
+#     of the ten most frequent categories.
+# Conclude this block with the complete summary statistics.
+```
+
+### The actual analysis starts below
+
+Make the graphs, summary statistics, regression model below. Make sure you have followed the guidelines as specified in [專案資料夾結構、檔案命名與文件規範](https://docs.google.com/document/d/1sl6gEFMdmiGsiNjLe17UmZ30xKxq15U0Mb2B-Jvusxg/edit?tab=t.33iie8ybx7s4).
+
+## Summary Statistics
+
+### Numeric Variables
+
+```{r summary-stat-numeric}
+dat %>% 
+  summarise(across(c(14, 29, 30), .fns=list(
+    mean = ~ round(mean(.), 3),
+    min = min,
+    Q25 = ~ quantile(., .25),
+    median = median,
+    Q75 = ~ quantile(., .75),
+    max = max,
+    sd = ~ round(sd(.), 3),
+    "#obs" = ~ length(.)
+  ))) %>% 
+  pivot_longer(everything(), names_pattern = "^(.*)_([^_]+)$", names_to = c("variable", ".value")) %>%
+  mutate(variable = str_replace_all(variable, "_", " ")) %>% 
+  kable("html", caption="Summary Statistics of Numeric Variables") %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+```
+
+大部分的加班時間(`overtime_hours`)都小於5，而有少數界外值。經過討論，我們決定保留加班時間的界外值。 儘管最大值為100，已遠超勞基法規定的每月加班上限54小時，但考慮到雇主或許會要求員工打卡下班後繼續無償加班，我們仍決定保留該違法的資料，以反映加班時間極長對於工作滿意度的影響。 而兩種工作年資月份的統計很合理，從開始工作以來的工作年資月份會大於等於在目前服務單位的工作年資月份，且前者也會有較大的標準差。 此外，由兩種工作年資月份的最大值可得知也有填答者從開始工作就一直待在同一間公司，持續48年。
+
+The histograms of the numeric variables:
+
+```{r plot-numeric, include=F, echo=F}
+dat %>% 
+  select(c(14, 29, 30)) %>% 
+  pivot_longer(everything()) %>% 
+  ggplot(aes(value)) +
+  geom_histogram() +
+  facet_wrap(
+    ~ str_to_title(str_replace_all(name, "_", " ")),
+    scales="free"
+  ) +
+  labs(
+    title = "Histograms of Numeric Variables"
+  ) +
+  theme_light()
+```
+
+可觀察到：
+
+-   加班時間有兩筆大於Q75的值。
+
+-   在目前工作單位的工作年資月份相較於從開始工作以來的月份來說，分配較為高狹，即較集中於較小的月份。
+
+### Categorical Variables
+
+```{r summary-stat-catogorical}
+cate_summary <- dat %>% 
+  select(-c(14, 29, 30)) %>% 
+  mutate(across(where(is.numeric), .fns = ~ as.factor(.x))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "level") %>% 
+  count(variable, level, name="count") %>% 
+  group_by(variable) %>% 
+  mutate(
+    percentage = round(count / sum(count), 4),
+    percentage = paste0(percentage * 100, "%")
+  ) %>% 
+  arrange(variable, desc(count)) %>% 
+  filter(row_number() <= 10)
+
+level_count <- cate_summary %>% count(variable)
+row_group <- level_count$n
+names(row_group) <- level_count$variable %>% paste0(": #obs=4095")
+
+cate_summary[, -1] %>% 
+  kable("html", caption="Summary Statistics of Categorical Variables") %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
+  # collapse_rows(1, row_group_label_position = "first") %>% 
+  pack_rows(index=row_group) %>% 
+  footnote("Only list the top 10 levels.") %>% 
+  scroll_box(height = "500pt")
+```
+
+在此表中，有某些值得一提的數據：
+
+在填答者的特質中，約有半數的填答者為大學學歷、男女性別比為 $`r (100 * 1965/2130) %>% round(2)`:100$ ，約有 $8\%$ 的填答者的工作型態為兼職或打工。 有超過8成的填答者認為工時適中，不需增加或減少。 在滿意度的總共12題中，絕大多數的人填寫的都是很滿意(`1`)、滿意(`2`)或普通(`3`)。 約為8成的填答者月薪落在 $26,400 \sim 59,999$ 之間。
+
+```{r barplot-satisfy-overall}
+sat.overall.obs <- select(dat, satisfy_overall) %>%
+  table %>% 
+  as.data.frame()
+
+dat %>% 
+  select(satisfy_overall) %>% 
+  ggplot(aes(satisfy_overall)) +
+  geom_bar() +
+  geom_text(data = sat.overall.obs, aes(x=satisfy_overall, y=Freq + 100, label=Freq)) +
+  labs(
+    title = "Barplot of Employee's Overall Satisfaction", 
+    x = "Overall Satisfaction", y = "Count"
+  ) +
+  scale_x_discrete(labels=c(
+    "1" = "Very satisfied (1)",
+    "2" = "Satisfied (2)",
+    "3" = "Neutral (3)",
+    "4" = "Dissatisfied (4)",
+    "5" = "very dissatisfied (5)"
+  )) +
+  theme_light()
+```
+
+此外，可以發現填答者在總體工作滿意度上，回答幾乎都集中在從非常滿意到普通，即僅有少數人不滿意其工作。 考慮到不滿意的資料在不同變數之下，會有樣本數不足的問題，因此後續的分析將著重在區分「總體工作滿意度是否為3分以上」，即區分「滿意以上」以及「普通以下」。
+
+## Logistic Regression
+
+由於我們希望了解的「勞工工作滿意度」為 categorical variable，無法使用 linear regression 進行資料分析，故我們使用 logistic regression 來探討影響勞工工作滿意度的因素。 而因為變數眾多（30個），可能導致模型中出現變數之間共線性（collinearity）的問題，因此先使用 L1 penalty 來進行變數選擇。 我們先透過 10-fold cross-validation 來選擇 lasso 的懲罰係數，使得使用該係數時，cross-validation error 最低。
+
+```{r cv-lambda}
+dat.1 <- dat %>% 
+  mutate(
+    y = as.numeric(satisfy_overall) <= 2,
+    y = as.numeric(y)
+  ) %>% 
+  select(-satisfy_overall) %>% 
+  relocate(y)
+x <- model.matrix(y ~ ., dat.1)[, -1]
+y <- dat.1$y
+
+set.seed(2025)
+cv.lasso <- cv.glmnet(x, y, alpha=1, family="binomial")
+lambda.min <- cv.lasso$lambda.min
+
+plot(cv.lasso)
+title(main="Cross-Validatoin Error Across log(Lambda)", cex.main=.5)
+```
+
+可以讓 cross-validation error 最低的懲罰係數為 $\lambda=`r round(lambda.min, 5)`$，下一步是挑選在此懲罰係數之下，其係數仍未收縮到 0 的變數。
+
+```{r cv-lambda-coef}
+coef(cv.lasso, lambda.min)
+```
+
+根據此結果，仍應保留的變數為: `scale`, `satisfy_environment`, `satisfy_work_hours`, `satisfy_wage`, `satisfy_work_load`, `satisfy_gender_equality`, `satisfy_supervisor_care`, `satisfy_colleague`, `satisfy_complaint_channel`, `satisfy_assess_and_promote`, `satisfy_education_training`, `satisfy_accessible`, `can_remotely_work`, `think_job_has_good_career_dev_prospect`, `think_lose_job_in_6_months`, `opinion_on_working_hours`, `work_leisure_balance`, `troubles_at_work`, `work_type`, `age`, `education`, `work_income`, `county`。 而其餘變數則而因變數間高度相關而導致其係數收縮到0，不需保留。
+
+接下來
+
+```{r logit-final}
+dat.2 <- dat.1 %>% 
+  select(c(
+    y, scale, satisfy_environment, satisfy_work_hours, satisfy_wage, satisfy_work_load, satisfy_gender_equality, satisfy_supervisor_care, satisfy_colleague, satisfy_complaint_channel, satisfy_assess_and_promote, satisfy_education_training, satisfy_accessible, can_remotely_work, think_job_has_good_career_dev_prospect, think_lose_job_in_6_months, opinion_on_working_hours, work_leisure_balance, troubles_at_work, work_type, age, education, work_income, county
+  ))
+
+# fit logistic regression
+logit <- glm(y ~ ., data = dat.2, family = "binomial")
+logit.robust <- coeftest(logit, vcov = vcovCL, type="HC1", df= 1 , cluster = ~ age)
+broom::tidy(logit.robust, conf.int=T) %>%
+  mutate(
+    p.value = case_when(
+      p.value < 0.01 ~ paste0(sprintf("%.3f", p.value), "***"),
+      p.value < 0.05 ~ paste0(sprintf("%.3f", p.value), "**"),
+      p.value < 0.1 ~ paste0(sprintf("%.3f", p.value), "*"),
+      TRUE ~ sprintf("%.3f", p.value)
+    )
+  ) %>% 
+  kable("html", caption="Logistic Regression Result") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>% 
+  scroll_box(width = "100%", height="500pt")
+```
+
+此結果顯示達到顯著的變數僅有：
+
+-   工作時間滿意度的非常不滿意（相較於非常滿意）\*\*：係數為負
+-   同事相處滿意度的非常不滿意（相較於非常滿意）\*：係數為負
+-   年齡的70歲以上（相較於15\~19歲）\*\*：係數為正
+
+我們可以得到以下推論：
+
+-   對於工作時間越滿意，則對於整體而言的工作滿意度就越滿意。
+
+-   對於同事之間的相處情形越滿意，則對於整體而言的工作滿意度就越滿意。
+
+-   年齡越高，則對於整體而言的工作滿意度就越滿意。
+
+-   其餘變數則對於勞工的整體工作滿意度而言，其影響未達到顯著水準。
+
+我們認為工作時間和同事關係這兩點作為所有滿意度的評量中唯二有影響的因素，或許是因為這兩點是工作中最常接觸到的兩件事情。\
+而年齡的影響，或許是因為年紀較小的人，還因為經濟壓力等等因素而待在自己不滿意的工作環境中，尚未換到其他公司，或是轉換工作跑道；而年紀較大者，或許已經習慣了他的職場和工作內容，因此滿意其工作。
