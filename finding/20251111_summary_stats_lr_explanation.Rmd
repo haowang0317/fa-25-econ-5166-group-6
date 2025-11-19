@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 -   **Research Motivation and Context (why are we interested in the findings?)：**
     -   近年來對於勞工權益的意識抬頭，職場霸凌等等的新聞也層出不窮。也因為距離進入職場不算太久，所以我們想要知道可能會有哪些因素導致勞工對於工作的滿意度上升，並且作為日後挑選工作的考量之一。
 -   **Main Findings and Takeaways：**
-    -   對於「工作場所」、「工作時間」、「薪水」、「工作負荷量」、「性別工作平等」、「主管」、「同事相處」、「員工申訴管道」、「人事考核升遷制度」、「員工教育訓練」越滿意，則對工作越滿意。年齡越高、認為將來失業的可能性越低、在工作中未遭遇到困難，亦會對工作越滿意。且影響力最大的因素為工作時間和同事相處情形。
+    -   對於「工作場所」、「工作時間」、「薪水」、「工作負荷量」、「性別工作平等」、「主管」、「同事相處」、「員工申訴管道」、「人事考核升遷制度」、「員工教育訓練」越滿意，則對工作越滿意。年齡越高、認為將來失業的可能性越低、在工作中未遭遇到困難，亦會對工作越滿意。且影響力最大的因素為工作時間和同事相處情形。除此之外，我們還對「工時」和「實際的薪水」兩個變數為何在模型中沒有影響提出了可能的解釋。
 -   **Future Direction：**
     -   大致上為最終的版本。
 
@@ -49,7 +49,14 @@ dat <- dat %>%
   mutate_at(-c(14, 15, 16, 20, 22, 29, 30), as.factor) %>%   # convert mislabeled factor into actual factor
   mutate(
     education = fct_relevel(education, "junior_high_or_lower"),  # make the level "junior_hight_or_lower" to be base
-    county = fct_relevel(county, "keelung")  # make the level "keelung" to be base
+    county = fct_relevel(county, "keelung"),  # make the level "keelung" to be base
+    work_income = fct_recode(
+      work_income, "0-26K"="0-26399", "26K-30K"="26400-29999", "30K-40K"="30000-39999",
+      "40K-60K"="40000-59999", "60K-80K"="60000-79999", "80K-100K"="80000-99999", "100K+"="100000+"
+    ),
+    work_income = fct_relevel(
+      work_income, "0-26K", "26K-30K", "30K-40K", "40K-60K", "60K-80K", "80K-100K", "100K+"
+    )
   )
 
 head(dat, 10) %>%
@@ -231,7 +238,7 @@ cor.mat <- dat %>%
     ),
     work_income = recode(
       work_income,
-      "0-26399" = 1, "26400-29999" = 2, "30000-39999" = 3, "40000-59999" = 4, "60000-79999" = 5, "80000-99999" = 6, "100000+" = 7
+      "0-26K" = 1, "26K-30K" = 2, "30K-40K" = 3, "40K-60K" = 4, "60K-80K" = 5, "80K-100K" = 6, "100K+" = 7
     ),
     county = as.integer(county) %>% as.factor(),
     across(is.factor, as.integer)
@@ -361,7 +368,7 @@ names(row_group.all) <- c(  # specify omitted groups
   "work_leisure_balance (omitted group: balanced)", "troubles_at_work", "work_type (omitted group: all_time)",
   "gender (omitted group: female)", "age (omitted group: 15-19)", 
   "education (omitted group: junior_high_or_lower)",
-  "work_income (omitted group: 0-26399)", "county (omitted group: keelung)",
+  "work_income (omitted group: 0-26K)", "county (omitted group: keelung)",
   "serviced_months_current", "serviced_months_total"
 )
 
@@ -599,15 +606,18 @@ plot_overtime.base <- dat.1 %>%
 
 plot_overtime.1 <- plot_overtime.base +
   geom_histogram() +
-  labs(title = "Overtime and Overall Satisfaction", y="Count")
+  labs(
+    title = "Frequency of Overtime Hours\nStratified by Overall Satisfaction",
+    y ="Number of Observations"
+  )
 plot_overtime.2 <- plot_overtime.base +
   geom_histogram(position="fill") +
-  geom_vline(xintercept = 5, color="red") +
-  annotate("text", x=9, y=.5, label="Q3=5", color="red") +
+  geom_vline(xintercept = 5, color="lightgray") +
+  annotate("text", x=9, y=.5, label="Q3=5", color="lightgray") +
   xlim(0, 51) +
   labs(
-    title = "Overtime and Overall Satisfaction",
-    subtitle = "Zoomed at Overtime in [0, 51]",
+    title = "Proportional Distribution of Overall\nSatisfaction Across Overtime Hours",
+    subtitle = "0~50 Hours Zoomed View",
     y = "Percentage (%)"
   )
 
@@ -621,80 +631,67 @@ ggarrange(plot_overtime.1, plot_overtime.2, legend="bottom", common.legend = T)
 
 ##### 收入
 
+在進行分析之前，我們認為收入應該會是影響工作滿意度的重要因素，但分析的結果中，這個變數的影響並未達到顯著。
+我們觀察在最終的模型中，與 `work_income` 收入之間相關最高的變數為 `age` 年齡，因此我們把不同年齡層的收入薪資級距比例視覺化。
+
 ```{r income-age}
-plot_income_age.base <- dat.1 %>% 
-  select(c(work_income, age)) %>% 
-  mutate(
-    # y = as.factor(y),
-    # y = recode(y, "1" = "satisfied", "0" = "not satisfied"),
-    # work_income = fct_relevel(
-      # work_income, "0-26399", "26400-29999", "30000-39999", 
-      # "40000-59999", "60000-79999", "80000-99999", "100000+"
-    # ),
-    work_income = fct_recode(
-      work_income, "0-26"="0-26399", "26-30"="26400-29999", "30-40"="30000-39999",
-      "40-60"="40000-59999", "60-80"="60000-79999", "80-100"="80000-99999", "100+"="100000+"
-    )
-  ) %>% 
+dat.1 %>% 
+  # select(c(work_income, age)) %>% 
+  filter(age != "70+") %>% 
+  mutate(work_income = fct_relevel(work_income, rev)) %>% 
   ggplot(aes(age, fill=work_income)) +
+  geom_bar(position="fill") +
   labs(
+    title = "Proportional Distribution of Work Income Brackets by Age Cohort", 
     x = "Age",
-    fill = "Work Income (1000 TWD)"
+    y = "Percentage (%)",
+    fill = "Work Income (TWD)"
   ) +
   theme_light()
-
-plot_income_age.1 <- plot_income_age.base +
-  geom_bar() +
-  labs(title = "Age and Work Income")
-plot_income_age.2 <- plot_income_age.base +
-  geom_bar(position="fill") +
-  labs(title = "Age and Work Income", y="Percentage (%)")
-
-ggarrange(plot_income_age.1, plot_income_age.2, nrow=2, common.legend = T, legend="bottom")
 ```
 
-我們可以看到年齡和收入之間存在著一定的關係，當年齡越高，收入也會跟著升高。
-因此我們認為儘管收入在 lasso regression 中並沒有被篩選掉，但是控制年齡後，收入的解釋力就跟著下降。
+可以看到年齡和收入之間存在著一定的關係，當年齡越高，低薪的佔比也隨之有下降的趨勢，整體而言薪資會隨著年齡上升而上升。
+因此儘管收入在 lasso regression 中並沒有被篩選掉，但是控制年齡後，收入的解釋力就跟著下降。
 
 
-```{r treat-likert-as-binary, include=F, echo=F}
-# The model does not outperformed the original model (due to its higher AIC).
-# Thus, the analysis is not included.
+```{r income-satisfy-analysis}
+plot_wage.1 <- dat %>% 
+  mutate(satisfy_wage = as.numeric(satisfy_wage)) %>%
+  group_by(work_income) %>% 
+  summarise(Mean.satisfy_wage = mean(satisfy_wage), .groups="drop") %>% 
+  ggplot(aes(x = work_income, y = Mean.satisfy_wage)) +
+  geom_point(size = 2) +
+  scale_y_reverse(limits = c(5, 1)) +
+  labs(
+    title = "Marginal Mean Scores of\nWage Satisfaction by Income Group",
+    x = "Work Income (K)",
+    y = "Mean Score of Wage Satisfaction"
+  ) +
+  theme_light() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# dat.2.bi <- dat.2 %>% 
-#   mutate(
-#     satisfy_environment = as.numeric(as.numeric(satisfy_environment) <= 2),
-#     satisfy_work_hours = as.numeric(as.numeric(satisfy_work_hours) <= 2),
-#     satisfy_wage = as.numeric(as.numeric(satisfy_wage) <= 2),
-#     satisfy_work_load = as.numeric(as.numeric(satisfy_work_load) <= 2),
-#     satisfy_gender_equality = as.numeric(as.numeric(satisfy_gender_equality) <= 2),
-#     satisfy_supervisor_care = as.numeric(as.numeric(satisfy_supervisor_care) <= 2),
-#     satisfy_colleague = as.numeric(as.numeric(satisfy_colleague) <= 2),
-#     satisfy_complaint_channel = as.numeric(as.numeric(satisfy_complaint_channel) <= 2),
-#     satisfy_assess_and_promote = as.numeric(as.numeric(satisfy_assess_and_promote) <= 2),
-#     satisfy_education_training = as.numeric(as.numeric(satisfy_education_training) <= 2),
-#     satisfy_accessible = as.numeric(as.numeric(satisfy_accessible) <= 2)
-#   )
-# 
-# logit_2 <- glm(y ~ ., data = dat.2.bi, family = "binomial")
-# logit_2.robust <- coeftest(logit, vcov = vcovHC(logit, type="HC1"))
-# broom::tidy(logit.robust, conf.int=T) %>%
-#   mutate(
-#     p.value = case_when(
-#       p.value < 0.01 ~ paste0(sprintf("%.3f", p.value), "***"),
-#       p.value < 0.05 ~ paste0(sprintf("%.3f", p.value), "**"),
-#       p.value < 0.1 ~ paste0(sprintf("%.3f", p.value), "*"),
-#       TRUE ~ sprintf("%.3f", p.value)
-#     )
-#   ) %>% 
-#   rename(
-#     Variable = term,
-#     Estimate = estimate,
-#     Std.error = std.error,
-#     Statistic = statistic,
-#     Confidence.Low = conf.low,
-#     Confidence.High = conf.high
-#   ) %>% 
-#   kable("html", caption="Variable Selected Logistic Regression Result") %>%
-#   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+plot_wage.2 <- dat %>% 
+  mutate(satisfy_wage = as.numeric(satisfy_wage)) %>% 
+  group_by(work_income, satisfy_work_load) %>%
+  summarise(Mean.satisfy_wage = mean(satisfy_wage), .groups="drop") %>% 
+  ggplot(aes(x = work_income, y = Mean.satisfy_wage, group = satisfy_work_load, color = satisfy_work_load)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_y_reverse(limits = c(5, 1)) +
+  labs(
+    title = "Interaction Effect of Work Load\nSatisfaction and Income\non Wage Satisfaction",
+    # subtitle = "Non-parallel lines suggest interaction",
+    x = "Work Income (K)",
+    y = "Mean Score of Wage Satisfaction",
+    color = "Work Load\nSatisfaction"
+  ) +
+  theme_light() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggarrange(plot_wage.1, plot_wage.2, legend="bottom", common.legend = T)
 ```
+
+觀察左圖，可以發現實際的薪資與薪資滿意度的整體趨勢並非實際薪資越高，對於其薪水的滿意程度就越高。因此兩者中間應有調節變項。
+再觀察右圖，可發現控制對於工作量的滿意度後，才能發現實際薪資和薪資滿意度之間較為明顯的線性關係。
+對於工作量滿意度高的人，實際的薪資影響薪資滿意度的程度並不大；不過對於工作量滿意度低的人，則需要高薪來維持薪資滿意度。
+因此企業若無法提供高薪（特別是在 30K-40K 級距），改善員工的工作量感受將是提升薪資滿意度最有效的策略。
