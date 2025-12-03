@@ -45,6 +45,25 @@ library(ggpubr)
 # setwd(dirname(rstudioapi::getActiveDocumentContext()$path))  # set the working directory to this Rmd file
 dat <- read.csv("../data/processed/processed_data112_01.csv")
 
+satisfy <- c("非常滿意" = "1", "滿意" = '2', "普通" = '3', "不滿意" = '4', "非常不滿意" = '5')
+col.name <- c(
+  "公司規模" = "scale", "環境滿意度" = "satisfy_environment", "工作時數滿意度" = "satisfy_work_hours",
+  "薪資滿意度" = "satisfy_wage", "工作負荷量滿意度" = "satisfy_work_load",
+  "性別工作平等滿意度" = "satisfy_gender_equality", "主管滿意度" = "satisfy_supervisor_care", 
+  "同事相處滿意度" = "satisfy_colleague", "申訴管道滿意度" = "satisfy_complaint_channel", 
+  "人事考核升遷滿意度" = "satisfy_assess_and_promote", "教育訓練滿意度" = "satisfy_education_training",
+  "無障礙環境滿意度" = "satisfy_accessible", "整體滿意度" = "satisfy_overall", "加班時數" = "overtime_hours",
+  "下班後是否還被以訊息交辦工作" = "has_assignment_off_work", "是否可以遠距工作" = "can_remotely_work",
+  "工作有好的職涯前景" = "think_job_has_good_career_dev_prospect", 
+  "未來6個月有可能會失業嗎" = "think_lose_job_in_6_months", "對於目前工作時數的看法" = "opinion_on_working_hours",
+  "最近一年內有無參加教育訓練" = "participate_training_in_past_year",
+  "目前工作與休閒的平衡狀況" = "work_leisure_balance", "在工作上有無遭遇到困擾" = "troubles_at_work", 
+  "工作型態" = "work_type", "性別" = "gender", "年齡" = "age", "教育程度" = "education", "收入水準" = "work_income",
+  "工作所在縣市" = "county", "在目前單位的服務年資" = "serviced_months_current", 
+  "開始工作至今的服務年資" = "serviced_months_total"
+)
+level_regex <- paste0("^(", paste(col.name, collapse = "|"), ")")
+
 dat <- dat %>% 
   mutate_at(-c(14, 15, 16, 20, 22, 29, 30), as.factor) %>%   # convert mislabeled factor into actual factor
   mutate(
@@ -56,10 +75,49 @@ dat <- dat %>%
     ),
     work_income = fct_relevel(
       work_income, "0-26K", "26K-30K", "30K-40K", "40K-60K", "60K-80K", "80K-100K", "100K+"
-    )
+    ),
+    across(starts_with("satisfy_"), ~ fct_recode(.x, !!!satisfy)),
+    opinion_on_working_hours = fct_recode(
+      opinion_on_working_hours, 
+      "減少" = "reduce", "維持" = "keep", "增加" = "raise"
+    ),
+    work_leisure_balance = fct_recode(
+      work_leisure_balance, 
+      "工作太多" = "too_much_work", "工作有點多" = "more_work", 
+      "工作和休閒平衡" = "balanced", "休閒有點多" = "more_leisure"
+    ),
+    work_type = fct_recode(
+      work_type, 
+      "全時工作" = "all_time", "兼職" = "part_time"
+    ),
+    education = fct_recode(
+      education, 
+      "國中及以下" = "junior_high_or_lower", "高中" = "high_school", "大學" = "university",
+      "碩士" = "master", "博士" = "phd", "專科" = "vocational"
+    ),
+    gender = fct_recode(
+      gender, 
+      "男" = "male", "女" = "female"
+    ),
+    county = fct_recode(
+      county,
+      "台北" = "taipei", "花蓮" = "hualien", "台中" = "taichung", "高雄" = "kaohsiung", "宜蘭" = "yilan", 
+      "台南" = "tainan", "新北市" = "new_taipei", "台東" = "taitung", "基隆" = "keelung", "桃園" = "taoyuan",
+      "苗栗" = "miaoli", "彰化" = "changhua", "新竹縣" = "hsinchu_county", "南投" = "nantou", "新竹市" = "hsinchu_city",
+      "屏東" = "pingtung", "澎湖" = "penghu", "嘉義縣" = "chiayi_county", "雲林" = "yunlin", "嘉義市" = "chiayi_city"
+    ),
+    think_job_has_good_career_dev_prospect = fct_recode(
+      think_job_has_good_career_dev_prospect,
+      "非常同意" = "1", "同意" = '2', "普通" = '3', "不同意" = '4', "非常不同意" = '5'
+    ),
+    think_lose_job_in_6_months = fct_recode(
+      think_lose_job_in_6_months,
+      "非常有可能" = "1", "可能" = '2', "普通" = '3', "不可能" = '4', "非常不可能" = '5'
+    ),
   )
 
 head(dat, 10) %>%
+  rename(any_of(col.name)) %>% 
   kable("html", caption="First 10 observations of the employee satisfication data") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
   scroll_box(width = "100%")
@@ -79,15 +137,11 @@ head(dat, 10) %>%
 
 Make the graphs, summary statistics, regression model below. Make sure you have followed the guidelines as specified in [專案資料夾結構、檔案命名與文件規範](https://docs.google.com/document/d/1sl6gEFMdmiGsiNjLe17UmZ30xKxq15U0Mb2B-Jvusxg/edit?tab=t.33iie8ybx7s4).
 
-```{r colname, include=F, echo=F}
-col.name <- c("scale", "satisfy_environment", "satisfy_work_hours", "satisfy_wage", "satisfy_work_load", "satisfy_gender_equality", "satisfy_supervisor_care", "satisfy_colleague", "satisfy_complaint_channel", "satisfy_assess_and_promote", "satisfy_education_training", "satisfy_accessible", "satisfy_overall", "overtime_hours", "has_assignment_off_work", "can_remotely_work", "think_job_has_good_career_dev_prospect", "think_lose_job_in_6_months", "opinion_on_working_hours", "participate_training_in_past_year", "work_leisure_balance", "troubles_at_work", "work_type", "gender", "age", "education", "work_income", "county", "serviced_months_current", "serviced_months_total")
-```
-
 ## Summary Statistics
 
 ### Numeric Variables
 
-```{r summary-stat-numeric}
+```{r summary-stat-numeric, warning=F}
 numeric.summary <- dat %>% 
   summarise(
     across(
@@ -111,7 +165,11 @@ numeric.summary <- dat %>%
   )
 
 numeric.summary %>% 
-  mutate(variable = str_replace_all(variable, "_", " ")) %>% 
+  # mutate(variable = str_replace_all(variable, "_", " ")) %>% 
+  mutate(
+    variable = as.factor(variable),
+    variable = fct_recode(variable, !!!col.name)
+  ) %>% 
   kable("html", caption="Summary Statistics of Numeric Variables") %>% 
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
 ```
@@ -120,10 +178,15 @@ numeric.summary %>%
 
 The histograms of the numeric variables:
 
-```{r plot-numeric, message=F}
+```{r plot-numeric, message=F, warning=F}
+theme_set(theme_grey(base_family = "Microsoft YaHei"))  # set the font of Chinese
+
 dat %>% 
   select(c(14, 29, 30)) %>% 
   pivot_longer(everything()) %>% 
+  mutate(
+    name = fct_recode(as.factor(name), !!!col.name)
+  ) %>% 
   ggplot(aes(value)) +
   geom_histogram() +
   facet_wrap(
@@ -131,7 +194,9 @@ dat %>%
     scales="free"
   ) +
   labs(
-    title = "Histograms of Numeric Variables"
+    title = "數值變數的直方圖",
+    y = "數量",
+    x = ""
   ) +
   theme_light()
 ```
@@ -144,7 +209,7 @@ dat %>%
 
 ### Categorical Variables
 
-```{r summary-stat-catogorical}
+```{r summary-stat-catogorical, warning=F}
 cate_summary <- dat %>% 
   select(-c(14, 29, 30)) %>% 
   mutate(across(where(is.numeric), .fns = ~ as.factor(.x))) %>%
@@ -160,7 +225,10 @@ cate_summary <- dat %>%
 
 level_count <- cate_summary %>% count(variable)
 row_group <- level_count$n
-names(row_group) <- level_count$variable %>% paste0(": #obs=4095")
+names(row_group) <- level_count$variable %>%
+  as.factor %>% 
+  fct_recode(., !!!col.name) %>% 
+  paste0(": #obs=4095")
 
 cate_summary[, -1] %>% 
   kable("html", caption="Summary Statistics of Categorical Variables") %>% 
@@ -173,7 +241,7 @@ cate_summary[, -1] %>%
 
 在此表中，有某些值得一提的數據：
 
-在填答者的特質中，約有半數的填答者為大學學歷、男女性別比為 $`r (100 * 1965/2130) %>% round(2)`:100$ ，約有 $8\%$ 的填答者的工作型態為兼職或打工。 有超過8成的填答者認為工時適中，不需增加或減少。 在滿意度的總共12題中，絕大多數的人填寫的都是很滿意(`1`)、滿意(`2`)或普通(`3`)。 約為8成的填答者月薪落在 $26,400 \sim 59,999$ 之間。
+在填答者的特質中，約有半數的填答者為大學學歷、男女性別比為 $`r (100 * 1965/2130) %>% round(2)`:100$ ，約有 $8\%$ 的填答者的工作型態為兼職或打工。 有超過8成的填答者認為工時適中，不需增加或減少。 在滿意度的總共12題中，絕大多數的人填寫的都是很滿意、滿意或普通。 約為8成的填答者月薪落在 $26,400 \sim 59,999$ 之間。
 
 ```{r barplot-satisfy-overall}
 sat.overall.obs <- select(dat, satisfy_overall) %>%
@@ -186,16 +254,9 @@ dat %>%
   geom_bar() +
   geom_text(data = sat.overall.obs, aes(x=satisfy_overall, y=Freq + 100, label=Freq)) +
   labs(
-    title = "Barplot of Employee's Overall Satisfaction", 
-    x = "Overall Satisfaction", y = "Count"
+    title = "員工整體滿意度的柱狀圖", 
+    x = "整體滿意度", y = "數量"
   ) +
-  scale_x_discrete(labels=c(
-    "1" = "Very satisfied (1)",
-    "2" = "Satisfied (2)",
-    "3" = "Neutral (3)",
-    "4" = "Dissatisfied (4)",
-    "5" = "Very dissatisfied (5)"
-  )) +
   theme_light()
 ```
 
@@ -203,7 +264,7 @@ dat %>%
 
 ### Correlations Between Variables
 
-```{r pair-correlation-matrix, fig.dim = c(10, 10)}
+```{r pair-correlation-matrix, fig.dim = c(10, 10), message=F}
 cor.mat <- dat %>% 
   select(-c(14, 29, 30)) %>%  # extract categorical data
   mutate(
@@ -213,19 +274,19 @@ cor.mat <- dat %>%
     ),
     opinion_on_working_hours = recode(
       opinion_on_working_hours,
-      reduce = 1, keep = 2, raise = 3
+      "減少" = 1, "維持" = 2, "增加" = 3
     ),
     work_leisure_balance = recode(
       work_leisure_balance,
-      too_much_work = 1, more_work = 2, balanced = 3, more_leisure = 4
+      "工作太多" = 1, "工作有點多" = 2, "工作和休閒平衡" = 3, "休閒有點多" = 4
     ),
     work_type = recode(
       work_type,
-      all_time = 1, part_time = 2
+      "全時工作" = 1, "兼職" = 2
     ),
     gender = recode(
       gender,
-      female = 0, male = 1
+      "女" = 0, "男" = 1
     ),
     age = recode(
       age,
@@ -234,7 +295,7 @@ cor.mat <- dat %>%
     ),
     education = recode(
       education,
-      junior_high_or_lower = 1, high_school = 2, vocational = 3, university = 4, master = 5, phd = 6
+      "國中及以下" = 1, "高中" = 2, "專科" = 3, "大學" = 4, "碩士" = 5, "博士" = 6
     ),
     work_income = recode(
       work_income,
@@ -243,6 +304,7 @@ cor.mat <- dat %>%
     county = as.integer(county) %>% as.factor(),
     across(is.factor, as.integer)
   ) %>%
+  rename(any_of(col.name[-c(14, 29, 30)])) %>%
   # select(-c(age, county)) %>% 
   # str()
   cor(., method="spearman") %>% 
@@ -271,8 +333,10 @@ cor.mat %>%
     axis.text.x = element_text(
       angle = 90 , hjust = 1, vjust = .3, size = 6
     ),
-    axis.text.y = element_text(size = 6)
+    axis.text.y = element_text(size = 6),
+    axis.title.x = element_text(hjust = .2)
   ) +
+  labs(x = "變數1", y="變數2") +
   coord_fixed()
 
 cor.mat %>% 
@@ -281,9 +345,9 @@ cor.mat %>%
   scroll_box(height = "500pt", width = "100%")
 ```
 
-此表為類別變數之間的相關係數 heat map 以及相對應的矩陣。可以發現除了以 `satisfy` 開頭的12個滿意度問題之間相關較高之外，其餘變項之間的相關大多數並不高。 而這一個整體而言的滿意度以及 11 個子向度的問題之間相關較高（相關係數介於 0.525 到 0.795），說明問卷調查本身具有高度的內部一致性，不過可能也表示填答者在子向度問題的回答上，有一定程度受到整體滿意度的影響。
+此表為類別變數之間的相關係數 heat map 以及相對應的矩陣。可以發現除了12個滿意度問題之間相關較高之外，其餘變項之間的相關大多數並不高。 而這一個整體而言的滿意度以及 11 個子向度的問題之間相關較高（相關係數介於 0.525 到 0.795），說明問卷調查本身具有高度的內部一致性，不過可能也表示填答者在子向度問題的回答上，有一定程度受到整體滿意度的影響。
 
-此外，由於年資和年齡之間或許存在著某些關係，因此我們藉由 $\eta^2$ statistic 來檢驗 `age` 分別和 `serviced_months_current` 與 `serviced_months_total` 這兩個變數之間的關係。
+此外，由於年資和年齡之間或許存在著某些關係，因此我們藉由 $\eta^2$ statistic 來檢驗 `年齡` 分別和 `在目前單位的服務年資` 與 `開始工作至今的服務年資` 這兩個變數之間的關係。
 
 ```{r cor-age-serviced-months}
 cat(
@@ -298,7 +362,7 @@ cat("\n\n\nVariations of serviced_months_total explained by age:\n")
 aov(serviced_months_total ~ age, data = dat) %>% eta_squared()
 ```
 
-由於 `serviced_months_total` 的變異可被 `age` 解釋的比例約為 76%，此為相當高的比例。 因此在後續的分析中，或許可以用年齡來取代年資的變數。
+由於 `開始工作至今的服務年資` 的變異可被 `年齡` 解釋的比例約為 76%，此為相當高的比例。 因此在後續的分析中，或許可以用年齡來取代年資的變數。
 
 ## Logistic Regression
 
@@ -320,6 +384,8 @@ dat.1 <- dat %>%
   relocate(y)
 x <- model.matrix(y ~ ., dat.1)[, -1]
 y <- dat.1$y
+
+# print(colnames(x))
 
 set.seed(2025)
 cv.lasso <- cv.glmnet(x, y, alpha=1, family="binomial")
@@ -354,40 +420,48 @@ lasso.best.coef <- coef(cv.lasso, lambda.min)[, 1] %>%
 colnames(lasso.best.coef) <- "lasso.estimate"
 row_group.all <- c(1, rep(4, 12), 1, 1, 1, 4, 4, 2, 1, 3, 1, 1, 1, 11, 5, 6, 19, 1, 1)
 names(row_group.all) <- c(  # specify omitted groups
-  "Intercept", "scale (omitted group: 0-29)", 
-  "satisfy_environment (omitted group: level 1)", "satisfy_work_hours (omitted group: level 1)", 
-  "satisfy_wage (omitted group: level 1)", "satisfy_work_load (omitted group: level 1)",
-  "satisfy_gender_equality (omitted group: level 1)", "satisfy_supervisor_care (omitted group: level 1)",
-  "satisfy_colleague (omitted group: level 1)", "satisfy_complaint_channel (omitted group: level 1)",
-  "satisfy_assess_and_promote (omitted group: level 1)", "satisfy_education_training (omitted group: level 1)",
-  "satisfy_accessible (omitted group: level 1)", 
-  "overtime_hours", "has_assignment_off_work", "can_remotely_work",
-  "think_job_has_good_career_dev_prospect (omitted group: level 1)", 
-  "think_lose_job_in_6_months (omitted group: level 1)", "opinion_on_working_hours (omitted group: keep)",
-  "participate_training_in_past_year",
-  "work_leisure_balance (omitted group: balanced)", "troubles_at_work", "work_type (omitted group: all_time)",
-  "gender (omitted group: female)", "age (omitted group: 15-19)", 
-  "education (omitted group: junior_high_or_lower)",
-  "work_income (omitted group: 0-26K)", "county (omitted group: keelung)",
-  "serviced_months_current", "serviced_months_total"
+  "Intercept", "公司規模 (omitted group: 0-29)", 
+  "環境滿意度 (omitted group: 非常滿意)", "工作時數滿意度 (omitted group: 非常滿意)", 
+  "薪資滿意度 (omitted group: 非常滿意)", "工作負荷量滿意度 (omitted group: 非常滿意)",
+  "性別工作平等滿意度 (omitted group: 非常滿意)", "主管滿意度 (omitted group: 非常滿意)",
+  "同事相處滿意度 (omitted group: 非常滿意)", "申訴管道滿意度 (omitted group: 非常滿意)",
+  "人事考核升遷滿意度 (omitted group: 非常滿意)", "教育訓練滿意度 (omitted group: 非常滿意)",
+  "無障礙環境滿意度  (omitted group: 非常滿意)", 
+  "加班時數", "下班後是否還被以訊息交辦工作", "是否可以遠距工作",
+  "工作有好的職涯前景 (omitted group: 非常同意)", 
+  "未來6個月有可能會失業嗎 (omitted group: 非常有可能)", "對於目前工作時數的看法  (omitted group: 維持不變)",
+  "最近一年內有無參加教育訓練",
+  "目前工作與休閒的平衡狀況 (omitted group: 平衡)", "在工作上有無遭遇到困擾", "工作型態 (omitted group: 全時工作)",
+  "性別 (omitted group: female)", "年齡 (omitted group: 15-19)", 
+  "教育程度 (omitted group: 國中或以下)",
+  "收入水準 (omitted group: 0-26K)", "工作所在縣市 (omitted group: 基隆)",
+  "在目前單位的服務年資", "開始工作至今的服務年資"
 )
 
-
 lasso.best.coef %>% 
-  rownames_to_column(var="variable") %>% 
+  rownames_to_column(var="Variable") %>%
   mutate(
-    lasso.estimate = ifelse(lasso.estimate == 0, ".", sprintf("%.3f", lasso.estimate))
+    lasso.estimate = ifelse(lasso.estimate == 0, ".", sprintf("%.3f", lasso.estimate)),
+    var.eng = str_extract(Variable, level_regex),
+    var.chn = fct_recode(as.factor(var.eng), !!!col.name),
+    level = str_remove(Variable, level_regex),
+    Variable = case_when(
+    is.na(var.chn) ~ "Intercept",
+    level == "" ~ var.chn,
+    .default = paste(var.chn, level, sep=": ")
+    )
   ) %>% 
+  select(-c(var.eng, var.chn, level)) %>%
   rename("Lasso Estimate" = lasso.estimate) %>% 
   kable("html", caption="Estimates of Lasso Logistic Regression") %>% 
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
   # collapse_rows(1, row_group_label_position = "first") %>% 
   pack_rows(index=row_group.all) %>%
-  footnote("The period '.' indicates that the estimate equals to zero.") %>%
+  footnote("The period '.' in 'Lasso Estimate' column indicates that the estimate equals to zero.") %>%
   scroll_box(height = "500pt")
 ```
 
-此表為 lasso logistic regression 的係數，表中 `Lasso Estimate` 欄位中為 `.` 者即表示其係數已收縮到 0。 在變數的選擇上，僅保留係數未收縮到 0 的 numeric variable，以及有任一 level 的係數未收縮到 0 的 categorical variable。 根據此結果，仍應保留的變數為: `scale`, `satisfy_environment`, `satisfy_work_hours`, `satisfy_wage`, `satisfy_work_load`, `satisfy_gender_equality`, `satisfy_supervisor_care`, `satisfy_colleague`, `satisfy_complaint_channel`, `satisfy_assess_and_promote`, `satisfy_education_training`, `satisfy_accessible`, `can_remotely_work`, `think_job_has_good_career_dev_prospect`, `think_lose_job_in_6_months`, `opinion_on_working_hours`, `work_leisure_balance`, `troubles_at_work`, `work_type`, `age`, `education`, `work_income`, `county`。 而其餘變數則而因變數間高度相關而導致其係數收縮到0，不需保留。
+此表為 lasso logistic regression 的係數，表中 `Lasso Estimate` 欄位中為 `.` 者即表示其係數已收縮到 0。 在變數的選擇上，僅保留係數未收縮到 0 的數值變數，以及有任一 level 的係數未收縮到 0 的類別變數。 根據此結果，仍應保留的變數為: `公司規模`, `環境滿意度`, `工作時數滿意度`, `薪資滿意度`, `工作負荷量滿意度`, `性別工作平等滿意度`, `主管滿意度 `, `同事相處滿意度`, `申訴管道滿意度`, `人事考核升遷滿意度`, `教育訓練滿意度`, `無障礙環境滿意度`, `是否可以遠距工作`, `工作有好的職涯前景`, `未來6個月有可能會失業嗎`, `對於目前工作時數的看法`, `目前工作與休閒的平衡狀況`, `在工作上有無遭遇到困擾`, `工作型態`, `年齡`, `教育程度`, `收入水準`, `工作所在縣市`。 而其餘變數則而因變數間高度相關而導致其係數收縮到0，不需保留。
 
 ### Logistic Regression with Fewer Variables
 
@@ -422,6 +496,17 @@ logit_coef.robust %>%
     Confidence.Low = conf.low,
     Confidence.High = conf.high
   ) %>% 
+  mutate(
+    var.eng = str_extract(Variable, level_regex),
+    var.chn = fct_recode(as.factor(var.eng), !!!col.name),
+    level = str_remove(Variable, level_regex),
+    Variable = case_when(
+    is.na(var.chn) ~ "Intercept",
+    level == "" ~ var.chn,
+    .default = paste(var.chn, level, sep=": ")
+    )
+  ) %>% 
+  select(-c(var.eng, var.chn, level)) %>%
   kable("html", caption="Variable Selected Logistic Regression Result") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>% 
   pack_rows(index=row_group.all[-c(14, 15, 20, 24, 29, 30)]) %>%
@@ -432,7 +517,7 @@ logit_coef.robust %>%
 
 ### Likelihood Ratio Test
 
-接下來我們取出所有 p-value \< 0.05 的變數，或是類別變數中有其中一個 level 的 p-value \< 0.05 的變數。 以這些變數對「對工作是否滿意」重新進行一次 logistic regression，並且對這個新的模型進行 likelihood ratio test，比較每次移除其中一個變數之後，reduced model 是否表現的比 full model 好，藉此檢驗每個類別變數整體而言是否有助於解釋資料。
+接下來我們取出所有 p-value \< 0.05 的變數，或是類別變數中有其中一個 level 的 p-value \< 0.05 的變數。 以這些變數對「對工作是否滿意」重新進行一次 logistic regression，並且對這個新的模型進行 likelihood ratio test，比較每次移除其中一個變數之後，新的模型是否表現的比原有的模型好，藉此檢驗每個類別變數整體而言是否有助於解釋資料。
 
 ```{r LRT}
 LRT <- car::Anova(
@@ -447,6 +532,7 @@ LRT <- car::Anova(
 )
 
 LRT %>% 
+  rownames_to_column("Variable") %>% 
   rename(p.value = "Pr(>Chisq)") %>% 
   mutate(
     p.value = case_when(
@@ -456,13 +542,15 @@ LRT %>%
       p.value < 0.1 ~ paste(sprintf("%.3f", p.value), "*"),
       TRUE ~ cell_spec(sprintf("%.3f", p.value), "html", color="green")
     ),
-    Chisq = round(Chisq, 3)
-  ) %>% 
+    Chisq = round(Chisq, 3),
+    Variable = as.factor(Variable),
+    Variable = fct_recode(Variable, !!!col.name)
+  ) %>%
   kable("html", escape=F, caption="Likelihood Ratio Test of Removing Each Variables") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
 ```
 
-可以發現在這些變數之中，`work_leisure_balance` 和 `county` 兩個變數未達到顯著。 說明這兩個變數儘管在某些 level 上和分別的參照點有差異，但整個變數在解釋資料上並無顯著影響。 因此，我們決定拿掉這兩個變數，進行最後的迴歸分析。
+可以發現在這些變數之中，`目前工作與休閒的平衡狀況` 和 `工作所在縣市` 兩個變數未達到顯著。 說明這兩個變數儘管在某些 level 上和分別的參照點有差異，但整個變數在解釋資料上並無顯著影響。 因此，我們決定拿掉這兩個變數，進行最後的迴歸分析。
 
 ### Final Logistic Regression
 
@@ -506,6 +594,17 @@ logit_final_coef.robust %>%
     Confidence.High = round(Confidence.High, 3)
   ) %>% 
   relocate(Odds.Ratio, .after = Estimate) %>%
+  mutate(
+    var.eng = str_extract(Variable, level_regex),
+    var.chn = fct_recode(as.factor(var.eng), !!!col.name),
+    level = str_remove(Variable, level_regex),
+    Variable = case_when(
+    is.na(var.chn) ~ "Intercept",
+    level == "" ~ var.chn,
+    .default = paste(var.chn, level, sep=": ")
+    )
+  ) %>% 
+  select(-c(var.eng, var.chn, level)) %>%
   kable("html", caption="Variable Selected Logistic Regression Result", escape=F) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>% 
   pack_rows(index=row_group.all[-c(2, 14, 15, 16, 17, 19, 20, 21, 23, 24, 26:30)]) %>%
@@ -536,10 +635,20 @@ logit_final_coef.robust %>%
   ) %>%
   select(-c(OR.CI.L, OR.CI.H, Confidence.Low, Confidence.High)) %>% 
   rename("1/Odds.Ratio" = OR.inv) %>% 
+  mutate(
+    var.eng = str_extract(Variable, level_regex),
+    var.chn = fct_recode(as.factor(var.eng), !!!col.name),
+    level = str_remove(Variable, level_regex),
+    Variable = case_when(
+    is.na(var.chn) ~ "Intercept",
+    level == "" ~ var.chn,
+    .default = paste(var.chn, level, sep=": ")
+    )
+  ) %>% 
+  select(-c(var.eng, var.chn, level)) %>%
   kable("html", caption="Variable Selected Logistic Regression Result", escape=F) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>% 
-  pack_rows(index=row_group.final) %>%
-  scroll_box(width = "110%", height="500pt")
+  pack_rows(index=row_group.final)
 ```
 
 
@@ -595,20 +704,24 @@ plot_overtime.base <- dat.1 %>%
   select(c(overtime_hours, y)) %>% 
   mutate(
     y = as.factor(y),
-    y = recode(y, "1" = "satisfied", "0" = "not satisfied")
+    y = recode(y, "1" = "滿意", "0" = "不滿意")
   ) %>% 
   ggplot(aes(overtime_hours, fill=y)) +
   labs(
-    x = "Overtime (hour)",
-    fill = "Overall Satisfaction"
+    x = "加班時間 (小時)",
+    fill = "整體滿意度"
   ) +
-  theme_light()
+  theme_light() +
+  theme(
+    legend.title = element_text(margin = margin(r = 45)),
+    legend.text = element_text(margin = margin(r = 20))
+  )
 
 plot_overtime.1 <- plot_overtime.base +
   geom_histogram() +
   labs(
-    title = "Frequency of Overtime Hours\nStratified by Overall Satisfaction",
-    y ="Number of Observations"
+    title = "加班時間的頻率分布\n以總體滿意度分層",
+    y ="數量"
   )
 plot_overtime.2 <- plot_overtime.base +
   geom_histogram(position="fill") +
@@ -616,9 +729,9 @@ plot_overtime.2 <- plot_overtime.base +
   annotate("text", x=9, y=.5, label="Q3=5", color="lightgray") +
   xlim(0, 51) +
   labs(
-    title = "Proportional Distribution of Overall\nSatisfaction Across Overtime Hours",
-    subtitle = "0~50 Hours Zoomed View",
-    y = "Percentage (%)"
+    title = "總體滿意度在\n加班時間之下的比例分布",
+    subtitle = "聚焦在加班時間為 0~50 小時",
+    y = "比例 (%)"
   )
 
 ggarrange(plot_overtime.1, plot_overtime.2, legend="bottom", common.legend = T)
@@ -632,7 +745,7 @@ ggarrange(plot_overtime.1, plot_overtime.2, legend="bottom", common.legend = T)
 ##### 收入
 
 在進行分析之前，我們認為收入應該會是影響工作滿意度的重要因素，但分析的結果中，這個變數的影響並未達到顯著。
-我們觀察在最終的模型中，與 `work_income` 收入之間相關最高的變數為 `age` 年齡，因此我們把不同年齡層的收入薪資級距比例視覺化。
+我們觀察在最終的模型中，與 `工作收入` 之間相關最高的變數為 `年齡`，因此我們把不同年齡層的收入薪資級距比例視覺化。
 
 ```{r income-age}
 dat.1 %>% 
@@ -642,10 +755,10 @@ dat.1 %>%
   ggplot(aes(age, fill=work_income)) +
   geom_bar(position="fill") +
   labs(
-    title = "Proportional Distribution of Work Income Brackets by Age Cohort", 
-    x = "Age",
-    y = "Percentage (%)",
-    fill = "Work Income (TWD)"
+    title = "工作收入在不同年齡層的比例分布", 
+    x = "年齡",
+    y = "比例 (%)",
+    fill = "工作收入 (TWD)"
   ) +
   theme_light()
 ```
@@ -663,9 +776,9 @@ plot_wage.1 <- dat %>%
   geom_point(size = 2) +
   scale_y_reverse(limits = c(5, 1)) +
   labs(
-    title = "Marginal Mean Scores of\nWage Satisfaction by Income Group",
-    x = "Work Income (K)",
-    y = "Mean Score of Wage Satisfaction"
+    title = "薪資滿意度在\n不同收入水準下的平均分數",
+    x = "工作收入 (TWD)",
+    y = "薪資滿意度的平均分數"
   ) +
   theme_light() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -679,14 +792,19 @@ plot_wage.2 <- dat %>%
   geom_point(size = 2) +
   scale_y_reverse(limits = c(5, 1)) +
   labs(
-    title = "Interaction Effect of Work Load\nSatisfaction and Income\non Wage Satisfaction",
+    title = "工作負荷量滿意度和收入水準\n對於薪資滿意度的交互作用",
     # subtitle = "Non-parallel lines suggest interaction",
-    x = "Work Income (K)",
-    y = "Mean Score of Wage Satisfaction",
-    color = "Work Load\nSatisfaction"
+    x = "工作收入 (TWD)",
+    y = "薪資滿意度的平均分數",
+    color = "工作負荷量滿意度"
   ) +
   theme_light() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom",
+    legend.title = element_text(margin = margin(r = 70)),
+    legend.text = element_text(margin = margin(r = 20))
+  )
 
 ggarrange(plot_wage.1, plot_wage.2, legend="bottom", common.legend = T)
 ```
