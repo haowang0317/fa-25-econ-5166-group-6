@@ -31,6 +31,7 @@ library(glmnet)
 library(sandwich)
 library(lmtest)
 library(ggpubr)
+library(brglm2)
 ```
 
 ```{r load-data}
@@ -556,7 +557,7 @@ LRT %>%
 
 我們藉著 logistic regression 來觀察各個變數在方向上是如何影響填答者對工作是否滿意。
 
-```{r final-logistic}
+```{r final-logit}
 logit_final <- glm(
     y ~ satisfy_environment + satisfy_work_hours + satisfy_wage + satisfy_work_load + satisfy_gender_equality 
     + satisfy_supervisor_care + satisfy_colleague + satisfy_complaint_channel + satisfy_assess_and_promote
@@ -613,7 +614,7 @@ logit_final_coef.robust %>%
 
 為了方便檢視，我們拿掉多餘的資訊，關注斜率估計值的 p-value \< 0.05 的變數，留下斜率的估計值及其信賴區間，並且計算 odds ratio、其信賴區間和其倒數，方便比較變數之間的重要程度。
 
-```{r logit-sig-coef}
+```{r final-logit-sig-coef}
 row_group.final <- row_group.all[-c(2, 13:17, 19:21, 23, 24, 26:30)]
 row_group.final[1:length(row_group.final)] <- c(1, 2, 3, 3, 3, 1, 3, 2, 1, 2, 2, 1, 1, 3)
 
@@ -651,6 +652,48 @@ logit_final_coef.robust %>%
   pack_rows(index=row_group.final)
 ```
 
+
+```{r final-logit-coef-plot}
+logit_final_coef.robust %>%
+  filter(p.value < .05) %>% 
+  mutate(
+    # level name: English to Chinese
+    var.eng = str_extract(Variable, level_regex),
+    var.chn = fct_recode(as.factor(var.eng), !!!col.name),
+    level = str_remove(Variable, level_regex),
+    Variable = case_when(
+      is.na(var.chn) ~ "Intercept",
+      level == "" ~ var.chn,
+      .default = paste(var.chn, level, sep=": ")
+    ),
+    Variable = as.factor(Variable),
+    # value
+    Odds.Ratio = exp(Estimate),
+    OR.inv = 1/Odds.Ratio,
+    pos = Odds.Ratio >= 1,
+    LB = exp(Confidence.Low) ^ (2 * pos - 1),
+    UB = exp(Confidence.High) ^ (2 * pos - 1)
+  ) %>%
+  select(c(Variable, Odds.Ratio, OR.inv, LB, UB)) %>%
+  rename("1/(Odds Ratio)" = OR.inv) %>% 
+  pivot_longer(-c(Variable, LB, UB), names_to = "OR") %>% 
+  filter(value >= 1) %>% 
+  filter(Variable != "Intercept") %>% 
+  mutate(value = ifelse(value > 1e3, Inf, value)) %>% 
+  ggplot(aes(x=value, y=Variable, fill=OR)) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(xmin=LB, xmax=UB)) +
+  xlim(0, 30) +
+  labs(
+    title = "各變數對於「勞工對工作是否滿意」勝算比的影響倍數",
+    x="", y="", fill=""
+  ) +
+  theme(axis.text.y = element_text(hjust=0)) +
+  theme_light()
+```
+
+此圖為變數的 odds ratio 或其倒數，方便在同一尺度下比較不同變數的重要性。值越大則表示該變數的影響程度越高。
+可以發現最重要的變數為 `年齡`、`工作時間滿意度`、`同事相處滿意度`。
 
 #### 結果
 
