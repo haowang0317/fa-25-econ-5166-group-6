@@ -35,10 +35,18 @@ the folder `notebook-templates` contains the jupyter notebooks and R markdown ex
 ## Each Member's Key Contribution
 After the poster presentation, please highlight each member's key contribution to the project. Please include the link to specific commits (e.g., a page like [this](https://github.com/yu-chang-chen/FA25-ECON-5166-Group-Project-Template/commit/29e276672f667af5cd7b198871033748fc3ec3ee)) for my reference.
 
-**`<NAME>`**'s contribution
-- `<Contribution >` [see commit](url)
-- `<Contribution >` [see commit](url)
+**`<王皓>`**'s contribution
+- `<資料清洗和檢查讓DA可以使用>` [c478943](https://github.com/haowang0317/fa-25-econ-5166-group-6/commit/c478943ce73c840b13e79fbf1820c06f1fcbde2d)
+- `<呈現資料（用於上台報告）>` [2e70720](https://github.com/haowang0317/fa-25-econ-5166-group-6/commit/2e70720dddb60144e5f6eecae7d603f029f2eee7)
 
-**`<NAME>`**'s contribution
-- `<Contribution >` [see commit](url)
-- `<Contribution >` [see commit](url)
+**`<林建宏>`**'s contribution
+- `<撰寫會議記錄>` [5d8aa85](https://github.com/haowang0317/fa-25-econ-5166-group-6/commit/5d8aa85f1654987702a7e62448889aec3e45a553)
+- `<製作期末海報>` [2519064](https://github.com/haowang0317/fa-25-econ-5166-group-6/commit/25190640542d4521e008d9f886932d36af1ae0e8)
+
+**`<林渭倫>`**'s contribution
+- `<資料描述性統計>` [a09afa6](https://github.com/haowang0317/fa-25-econ-5166-group-6/commit/a09afa6bccdd04115c6c04042e584dd35a15b549)
+- `<初步資料分析>` [85f147f](https://github.com/haowang0317/fa-25-econ-5166-group-6/commit/85f147f20cc49ab6df510253ae9d837fa5f1fd00)
+- `<延伸資料分析>` [4b35467](https://github.com/haowang0317/fa-25-econ-5166-group-6/commit/4b35467ea571cd005d75ff853b8e4569bb1e2806)
+
+**`<陳興文>`**'s contribution
+- `<變數命名，分類與二元數值調整>` [4c1eb8e](https://github.com/haowang0317/fa-25-econ-5166-group-6/commit/4c1eb8edc97c7eb6fe36ca4f58953a9baed5ee3b)
